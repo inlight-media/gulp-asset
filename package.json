@@ -1,0 +1,33 @@
+{
+  "name": "gulp-asset",
+  "version": "0.0.0",
+  "description": "Gulp module for managing asset revisions and using multiple domains to server assets.",
+  "homepage": "https://github.com/inlight-media/gulp-asset",
+  "author": {
+    "name": "Inlight Media",
+    "url": "http://inlight.com.au"
+  },
+  "bugs": {
+    "url": "https://github.com/inlight-media/gulp-asset/issues"
+  },
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/inlight-media/gulp-asset.git"
+  },
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "https://github.com/inlight-media/gulp-asset/blob/master/LICENSE-MIT"
+    }
+  ],
+  "dependencies": {
+    "crypto": "0.0.3",
+    "gulp-util": "^2.2.14",
+    "through2": "^0.4.1",
+    "underscore": "^1.6.0"
+  }
+}

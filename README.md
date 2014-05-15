@@ -5,6 +5,7 @@ Creates revision using md5 hash of file contents and replaces all occurances of 
 ## Install
 
 Install with [npm](https://npmjs.org/)
+	
 	npm install --save-dev gulp-asset
 
 ## Usage

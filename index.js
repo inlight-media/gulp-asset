@@ -15,6 +15,8 @@ var gutil = require('gulp-util');
 var through = require('through2');
 var fs = require('fs');
 var _ = require('underscore');
+var pkg = require('./package.json');
+var version = pkg.version;
 
 // Use .config({}) command to modify these defaults
 var defaults = {
@@ -84,6 +86,7 @@ var replace = function(opts) {
 	var interval = opts.interval || defaults.interval;
 	var repeat = opts.repeat || defaults.repeat;
 	var assetPath = opts.assetPath || defaults.assetPath;
+
 	return through.obj(function(file, enc, cb) {
 		var newContents = file.contents;
 		var _this = this;
@@ -92,10 +95,27 @@ var replace = function(opts) {
 		(function recurse() {
 			var failed = repeats >= repeat;
 
+			// Find how many are files are still missing from the manifest,
+			// if some are missing don't continue, bypassing the regex should hopefully be a less expensive task
+			if (!_.isEmpty(completed)) {
+				var keys = _.keys(completed);
+				var missing = 0;
+				keys.forEach(function(key) {
+					missing += typeof manifest[key] == 'undefined';
+				});
+				if (missing > 0 && !failed) {
+					repeats++;
+					setTimeout(recurse, interval);
+					return;
+				}
+			}
+
+			// If there are none missing then scan contents
 			newContents = new Buffer(String(file.contents).replace(/\b((asset:\/\/?)[^'"\s()<>]+(?:\([\w\d]+\)|([\.\w+]|\/)))/ig, function(match) {
-				completed[match] = false;
 				// Replace placeholder with correct base
 				var filepath = match.replace('asset://', assetPath);
+
+				completed[filepath] = false;
 
 				// Check if file already in manifest, if it is, use it
 				var found = manifest[filepath];
@@ -108,7 +128,7 @@ var replace = function(opts) {
 				// Get output filename and index for use in switching between prefixes
 				var output = found.file;
 				var index = found.index;
-				completed[match] = true;
+				completed[filepath] = true;
 
 				// Construct prefix either using array or string
 				var pre = _.isArray(prefix) ? prefix[index % prefix.length] : prefix;
@@ -121,7 +141,7 @@ var replace = function(opts) {
 			if (_.indexOf(_.values(completed), false) == -1 || failed) {
 				if (failed) {
 					var errored = _.compact(_.map(completed, function(val, key) { return !val ? gutil.colors.red(key): undefined }));
-					var fileName = path.basename(file.path);
+					var fileName = path.join(file.path.replace(file.cwd, '').replace(defaults.src, defaults.dest));
 					var message = gutil.colors.yellow(fileName) + ': Stalled or unable to process asset url: ' + errored.join(', ') + '. This can occur if the file doesn\'t exist or is very large and takes time to process. You can updated the "interval" option or the "repeats".';
 					_this.emit('error', new gutil.PluginError('gulp-asset', message));
 				}
@@ -137,6 +157,7 @@ var replace = function(opts) {
 }
 
 module.exports = {
+	version: version,
 	config: config,
 	rev: rev,
 	replace: replace

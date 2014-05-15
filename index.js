@@ -24,6 +24,8 @@ var defaults = {
 	src: 'src', // specify where your src code is located
 	dest: 'dist', // specify where your src code is located
 	assetPath: '/assets/', // specify where you
+	manifest: 'manifest.js', // filename format for saving the manifest file (a revision number will be put on it)
+	globalVar: '__assets', // the global var to assign manifest to. It will attach it to the 'window' (ie, window.__assets).
 	// @TODO: In future these values could be determined from the size of the project directory
 	interval: 100, // change the interval or repeat value for projects that are larger and take more time for all assets to complete
 	repeat: 10,
@@ -43,13 +45,47 @@ var config = function(opts) {
 	defaults = _.defaults(opts, defaults);
 }
 
+function md5(str) {
+	return crypto.createHash('md5').update(str, 'utf8').digest('hex').slice(0, 8);
+}
+
+// Manifest file name creation
+var manifestRev = md5(('' + +(new Date())));
+function manifestFileName(opts) {
+	opts = opts || {};
+	var ext = path.extname(defaults.manifest);
+	var assetPath = (opts.assetPath || defaults.assetPath);
+	var output = assetPath + path.basename(defaults.manifest).replace(ext, '') + '-' + manifestRev + ext;
+	return output;
+};
+
+// Setup method to write the manifest file. It uses a timeout to attempt to reduce
+// number of writes that are performed.
+var manifestTimeout;
+function writeManifest() {
+	if (manifestTimeout) {
+		clearTimeout(manifestTimeout);
+	}
+
+	manifestTimeout = setTimeout(function() {
+		var assets = {};
+		_.keys(manifest).forEach(function(key) {
+			assets[key] = manifest[key].dest;
+		});
+
+		var filepath = path.join(defaults.dest, manifestFileName());
+		fs.writeFile(filepath, ';window.' + defaults.globalVar + ' = ' + JSON.stringify(assets) + ';');
+	}, 200);
+}
+
 // Gets md5 from file contents and writes new filename with hash included to destinations
 var rev = function() {
+	var prefix = _.flatten([defaults.prefix]);
 	return through.obj(function(file, enc, cb) {
 		var originalPath = file.path;
 
 		// Get hash of contents
-		var hash = crypto.createHash('md5').update(file.contents.toString(), 'utf8').digest('hex').slice(0, 8);
+		var hash = md5(file.contents.toString());
 
 		// Construct new filename
 		var ext = path.extname(file.path);
@@ -62,16 +98,21 @@ var rev = function() {
 
 		// Check for existing value and whether cleanup is set
 		var existing = manifest[key];
-		if (existing && existing.file && defaults.cleanup) {
+		if (existing && existing.src && defaults.cleanup) {
 			// Delete the file
-			fs.unlink(path.join(file.cwd, defaults.dest, existing.file));
+			fs.unlink(path.join(file.cwd, defaults.dest, existing.src));
 		}
 
 		// Finally add new value to manifest
+		var src = file.path.replace(base, '');
 		manifest[key] = {
-			file: file.path.replace(base, ''),
-			index: index++
+			index: index++,
+			src: src,
+			dest: prefix[index % prefix.length] + src
 		};
+
+		// Write manifest file
+		writeManifest();
 
 		// Return and continue
 		this.push(file);
@@ -80,12 +121,10 @@ var rev = function() {
 }
 
 // Scans the contents of the file and replaces all asset:// urls with the correct revision url
-var replace = function(opts) {
-	opts = opts || {};
-	var prefix = opts.prefix || defaults.prefix;
-	var interval = opts.interval || defaults.interval;
-	var repeat = opts.repeat || defaults.repeat;
-	var assetPath = opts.assetPath || defaults.assetPath;
+var replace = function() {
+	var prefix = _.flatten([defaults.prefix]);
+	var interval = defaults.interval;
+	var assetPath = defaults.assetPath;
 
 	return through.obj(function(file, enc, cb) {
 		var newContents = file.contents;
@@ -93,7 +132,7 @@ var replace = function(opts) {
 		var completed = {};
 		var repeats = 0;
 		(function recurse() {
-			var failed = repeats >= repeat;
+			var failed = repeats >= defaults.repeat;
 
 			// Find how many are files are still missing from the manifest,
 			// if some are missing don't continue, bypassing the regex should hopefully be a less expensive task
@@ -111,9 +150,20 @@ var replace = function(opts) {
 			}
 
 			// If there are none missing then scan contents
-			newContents = new Buffer(String(file.contents).replace(/\b((asset:\/\/?)[^'"\s()<>]+(?:\([\w\d]+\)|([\.\w+]|\/)))/ig, function(match) {
+			newContents = new Buffer(String(file.contents).replace(/\b((asset:\/\/?)[^'"\s()<>]*(?:\([\w\d]*\)|([\.\w*]|\/)))/ig, function(match) {
 				// Replace placeholder with correct base
 				var filepath = match.replace('asset://', assetPath);
+
+				// Handle matches where it is just the base protocol to replace
+				// Useful for your javascript expressions wher url is constructed using expression
+				if (match == 'asset://') {
+					return filepath;
+				}
+
+				// If manifest then return special manifest path
+				if (filepath == path.join(assetPath, defaults.manifest)) {
+					return prefix[0] + manifestFileName(opts);
+				}
 
 				completed[filepath] = false;
 
@@ -126,15 +176,9 @@ var replace = function(opts) {
 					return match;
 				}
 				// Get output filename and index for use in switching between prefixes
-				var output = found.file;
-				var index = found.index;
+				var output = found.dest;
 				completed[filepath] = true;
-
-				// Construct prefix either using array or string
-				var pre = _.isArray(prefix) ? prefix[index % prefix.length] : prefix;
-				var result = pre + (output || '');
-
-				return result;
+				return output;
 			}));
 
 			// If all matches have been completely replaced, finish, else recurse

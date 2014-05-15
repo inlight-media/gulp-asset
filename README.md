@@ -7,6 +7,8 @@ Gulp module for managing asset revisions and paths.
 - Load balance assets across domains
 - Use manifest file to access revision files within javascript
 - Assets always loaded from same domain
+- Detects broken asset urls during build process
+- Template engine agnostic
 
 Creates revision using md5 hash of file contents and replaces all occurances of path in referencing files. Also allows you to prefix asset urls for balancing across cdn domains. It will also ensure that a single file only ever comes from the one prefix so assets aren't double downloaded.
 
@@ -46,7 +48,7 @@ Example JavaScript file
 
 Example HTML file
 
-	<img src="assets://img/image.png">
+	<img src="asset://img/image.png">
 
 Example CSS file
 

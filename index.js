@@ -46,12 +46,13 @@ var config = function(opts) {
 	defaults = _.defaults(opts, defaults);
 }
 
-function md5(str) {
-	return defaults.hash ? crypto.createHash('md5').update(str, 'utf8').digest('hex').slice(0, 8) : undefined;
+function md5(opts, str) {
+	var shouldHash = typeof opts.hash != 'undefined' ? opts.hash : defaults.hash;
+	return shouldHash ? crypto.createHash('md5').update(str, 'utf8').digest('hex').slice(0, 8) : undefined;
 }
 
 // Manifest file name creation
-var manifestRev = md5(('' + +(new Date())));
+var manifestRev = md5({}, ('' + +(new Date())));
 function manifestFileName(opts) {
 	opts = opts || {};
 	var ext = path.extname(defaults.manifest);
@@ -81,13 +82,15 @@ function writeManifest() {
 }
 
 // Gets md5 from file contents and writes new filename with hash included to destinations
-var rev = function() {
+var rev = function(opts) {
+	var opts = opts || {};
+	var shouldHash = typeof opts.hash != 'undefined' ? opts.hash : defaults.hash;
 	var prefix = _.flatten([defaults.prefix]);
 	return through.obj(function(file, enc, cb) {
 		var originalPath = file.path;
 
 		// Get hash of contents
-		var hash = md5(file.contents.toString());
+		var hash = md5(opts, file.contents.toString());
 
 		// Construct new filename
 		var ext = path.extname(file.path);
@@ -105,7 +108,7 @@ var rev = function() {
 		if (existing && existing.src && defaults.cleanup) {
 			// Delete the file
 			fs.unlink(path.join(file.cwd, defaults.dest, existing.src));
-		} else if (defaults.cleanup && defaults.hash) {
+		} else if (defaults.cleanup && shouldHash) {
 			// Check if cleanup and hash enabled then we can remove any non hashed version from dest directory
 			var nonHashPath = path.join(path.dirname(originalPath), basePath + ext).replace(base, '');
 			var absPath = path.join(file.cwd, defaults.dest, nonHashPath);

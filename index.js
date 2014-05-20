@@ -162,7 +162,7 @@ var replace = function() {
 			}
 
 			// If there are none missing then scan contents
-			newContents = new Buffer(String(file.contents).replace(/\b((asset:\/\/?)[^'"\s()<>]*(?:\([\w\d]*\)|([\.\w*]|\/)))/ig, function(match) {
+			newContents = new Buffer(String(file.contents).replace(/\b((asset:\/\/?)[^#!%&*$?'"\s()<>]*(?:\([\w\d]*\)|([\.\w*]|\/)))/ig, function(match) {
 				// Replace placeholder with correct base
 				var filepath = match.replace('asset://', assetPath);
 

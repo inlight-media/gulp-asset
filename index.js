@@ -86,6 +86,7 @@ var rev = function(opts) {
 	var opts = opts || {};
 	var shouldHash = typeof opts.hash != 'undefined' ? opts.hash : defaults.hash;
 	var prefix = _.flatten([defaults.prefix]);
+	var shouldPrefix = typeof opts.shouldPrefix != 'undefined' ? opts.shouldPrefix : true;
 	return through.obj(function(file, enc, cb) {
 		var originalPath = file.path;
 
@@ -118,12 +119,14 @@ var rev = function(opts) {
 			});
 		}
 
+		var filePrefix = shouldPrefix ? prefix[index % prefix.length] : '';
+
 		// Finally add new value to manifest
 		var src = file.path.replace(base, '');
 		manifest[key] = {
 			index: index++,
 			src: src,
-			dest: prefix[index % prefix.length] + src
+			dest: filePrefix + src
 		};
 
 		// Write manifest file

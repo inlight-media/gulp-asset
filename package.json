@@ -1,6 +1,6 @@
 {
   "name": "gulp-asset",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "Gulp module for managing asset revisions and using multiple domains to server assets.",
   "homepage": "https://github.com/inlight-media/gulp-asset",
   "keywords": [
